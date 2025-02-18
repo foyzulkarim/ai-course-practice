@@ -49,8 +49,10 @@ jobs:
             done
           fi
 
-          # Output the note for later steps
-          echo "note=$(echo -e "$release_note")" >> $GITHUB_OUTPUT
+          # Output the note for later steps using the appropriate multi-line syntax
+          echo "note<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$release_note" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Check if Tag Exists
         id: check_tag
