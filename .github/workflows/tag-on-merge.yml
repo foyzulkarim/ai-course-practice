@@ -30,9 +30,48 @@ jobs:
           echo "New tag: $newTag"
           echo "tag=$newTag" >> $GITHUB_OUTPUT
 
+      - name: Get Merged PR Titles
+        id: pr_titles
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Determine the latest tag (or fallback)
+          latestTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          if [ "$latestTag" == "v0.0.0" ]; then
+            commitRange=""
+          else
+            commitRange="${latestTag}..HEAD"
+          fi
+          echo "Using commit range: $commitRange"
+          
+          # Extract PR numbers from merge commit messages
+          pr_numbers=$(git log $commitRange --merges --pretty=format:"%s" | grep -oE '#[0-9]+' | sed 's/#//g' | sort -u)
+          
+          # Build the release note body with PR titles
+          release_note="Automatically generated release for tag ${{ steps.new_tag.outputs.tag }}."
+          if [ -n "$pr_numbers" ]; then
+            release_note="${release_note}\n\nMerged Pull Requests:"
+            for pr in $pr_numbers; do
+              title=$(gh pr view $pr --json title -q ".title")
+              release_note="${release_note}\n- PR #${pr}: ${title}"
+            done
+          fi
+          
+          # Output the note for later steps
+          echo "note=$(echo -e "$release_note")" >> $GITHUB_OUTPUT
+
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.new_tag.outputs.tag }}
           git push origin ${{ steps.new_tag.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ steps.new_tag.outputs.tag }}
+          release_name: Release ${{ steps.new_tag.outputs.tag }}
+          body: ${{ steps.pr_titles.outputs.note }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
