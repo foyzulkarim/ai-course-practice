@@ -25,3 +25,7 @@ Follow these steps to set up a fresh Python project using conda:
    pip install transformers
    ```
 
+   OR install the library from a requirements file:
+   ```bash
+   pip install -r requirements.txt
+   ```
