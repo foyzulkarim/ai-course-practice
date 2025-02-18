@@ -1,0 +1,38 @@
+name: Tag on merge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Determine New Tag
+        id: new_tag
+        run: |
+          # Get the latest tag (assumes tags are prefixed with "v")
+          latestTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $latestTag"
+          
+          # Remove the "v" prefix and split into components
+          version=${latestTag#v}
+          IFS='.' read -r major minor patch <<< "$version"
+          
+          # Increment patch version
+          patch=$((patch+1))
+          newTag="v$major.$minor.$patch"
+          
+          echo "New tag: $newTag"
+          echo "tag=$newTag" >> $GITHUB_OUTPUT
+
+      - name: Create and Push Tag
+        run: |
+          git tag ${{ steps.new_tag.outputs.tag }}
+          git push origin ${{ steps.new_tag.outputs.tag }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
