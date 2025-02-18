@@ -6,6 +6,9 @@ on:
       tag:
         description: "Enter a tag version (e.g. v1.2.3)"
         required: true
+      prs:
+        description: "Optional comma-separated PR numbers (e.g. 123,456)"
+        required: false
 
 jobs:
   create-tag:
@@ -17,7 +20,6 @@ jobs:
       - name: Determine New Tag
         id: new_tag
         run: |
-          # Use manually provided tag
           newTag="${{ github.event.inputs.tag }}"
           echo "New tag: $newTag"
           echo "tag=$newTag" >> $GITHUB_OUTPUT
@@ -27,17 +29,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Determine the latest tag (or fallback)
-          latestTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          if [ "$latestTag" == "v0.0.0" ]; then
-            commitRange=""
+          # Check if user provided PR numbers manually
+          inputPRs="${{ github.event.inputs.prs }}"
+          
+          if [ -n "$inputPRs" ]; then
+            # Use provided PR numbers (assumed comma-separated)
+            pr_numbers=$(echo "$inputPRs" | tr ',' ' ')
           else
-            commitRange="${latestTag}..HEAD"
-          fi
-          echo "Using commit range: $commitRange"
+            # Determine the latest tag (or fallback)
+            latestTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            if [ "$latestTag" = "v0.0.0" ]; then
+              commitRange=""
+            else
+              commitRange="${latestTag}..HEAD"
+            fi
+            echo "Using commit range: $commitRange"
 
-          # Extract PR numbers from merge commit messages
-          pr_numbers=$(git log $commitRange --merges --pretty=format:"%s" | grep -oE '#[0-9]+' | sed 's/#//g' | sort -u)
+            # Extract PR numbers from merge commit messages
+            pr_numbers=$(git log $commitRange --merges --pretty=format:"%s" | grep -oE '#[0-9]+' | sed 's/#//g' | sort -u)
+          fi
 
           # Build the release note body with PR titles
           release_note="Automatically generated release for tag ${{ steps.new_tag.outputs.tag }}."
@@ -49,7 +59,7 @@ jobs:
             done
           fi
 
-          # Output the note for later steps using the appropriate multi-line syntax
+          # Output the note for later steps using multi-line syntax
           echo "note<<EOF" >> $GITHUB_OUTPUT
           echo -e "$release_note" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
