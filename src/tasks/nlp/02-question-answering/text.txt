@@ -1,0 +1,9 @@
+I am brainstorming an idea and I’d love to hear your thoughts on this! If you have experience or ideas for optimizing request handling in a setup like this, please share your insights in the comments.
+
+**Problem Statement:**
+
+In a Local Area Network (LAN), I have two machines, each running three Ollama containers on different ports. Each container hosts a distinct Large Language Model (LLM). 
+
+When a client application (e.g., a BFF layer) sends inference requests to these containers, there’s a need for an efficient mechanism to manage and route these requests. Specifically, a queue system is required to throttle and distribute requests evenly, and an API gateway is needed to handle routing to the appropriate container instances. The gateway can use HTTP header-based routing, ensuring invalid requests return a 404 error.
+
+The goal is to design an architecture that maximizes the efficiency of the containers, enabling the inference layer (queue, API gateway, and containers) to handle the highest possible number of requests per second (RPS) while maintaining reliability and performance.
