@@ -24,17 +24,18 @@ jobs:
           echo "New tag: $newTag"
           echo "tag=$newTag" >> $GITHUB_OUTPUT
 
-      - name: Get Merged PR Titles
+      - name: Get Merged PR Titles and Generate Changelog
         id: pr_titles
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Check if user provided PR numbers manually
           inputPRs="${{ github.event.inputs.prs }}"
-          
+
           if [ -n "$inputPRs" ]; then
             # Use provided PR numbers (assumed comma-separated)
             pr_numbers=$(echo "$inputPRs" | tr ',' ' ')
+            commitRange=""
           else
             # Determine the latest tag (or fallback)
             latestTag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
@@ -57,6 +58,13 @@ jobs:
               title=$(gh pr view $pr --json title -q ".title")
               release_note="${release_note}\n- PR #${pr}: ${title}"
             done
+          fi
+
+          # Generate changelog from commit messages if commit range is set
+          if [ -n "$commitRange" ]; then
+            changelog="\n\nChangelog:\n"
+            changelog+="$(git log $commitRange --pretty=format:"- %s")"
+            release_note="${release_note}${changelog}"
           fi
 
           # Output the note for later steps using multi-line syntax
