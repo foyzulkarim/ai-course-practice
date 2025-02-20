@@ -1,0 +1,160 @@
+name: Smart Release Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to base the release on (leave empty for latest merged PR)'
+        required: false
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+
+      - name: Determine PR number
+        id: get_pr
+        run: |
+          if [ -z "${{ github.event.inputs.pr_number }}" ]; then
+            # Get latest merged PR
+            LATEST_PR=$(gh pr list --limit 1 --state merged --json number,title,body,url --jq '.[0]')
+            PR_NUMBER=$(echo "$LATEST_PR" | jq -r '.number')
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "pr_title=$(echo "$LATEST_PR" | jq -r '.title')" >> $GITHUB_OUTPUT
+            echo "pr_body=$(echo "$LATEST_PR" | jq -r '.body')" >> $GITHUB_OUTPUT
+            echo "pr_url=$(echo "$LATEST_PR" | jq -r '.url')" >> $GITHUB_OUTPUT
+          else
+            # Use provided PR number
+            PR_DETAILS=$(gh pr view ${{ github.event.inputs.pr_number }} --json title,body,url)
+            echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+            echo "pr_title=$(echo "$PR_DETAILS" | jq -r '.title')" >> $GITHUB_OUTPUT
+            echo "pr_body=$(echo "$PR_DETAILS" | jq -r '.body')" >> $GITHUB_OUTPUT
+            echo "pr_url=$(echo "$PR_DETAILS" | jq -r '.url')" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine current version
+        id: get_version
+        run: |
+          if [ -f "package.json" ]; then
+            CURRENT_VERSION=$(grep -o '"version": "[^"]*"' package.json | cut -d'"' -f4)
+            echo "version_file=package.json" >> $GITHUB_OUTPUT
+          elif [ -f "version.txt" ]; then
+            CURRENT_VERSION=$(cat version.txt)
+            echo "version_file=version.txt" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Could not find package.json or version.txt"
+            exit 1
+          fi
+
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # Parse semver components
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
+          
+          # Calculate new version based on bump type
+          if [ "${{ github.event.inputs.bump_type }}" == "major" ]; then
+            NEW_VERSION="$((MAJOR + 1)).0.0"
+          elif [ "${{ github.event.inputs.bump_type }}" == "minor" ]; then
+            NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+          else # patch
+            NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version file
+        run: |
+          if [ "${{ steps.get_version.outputs.version_file }}" == "package.json" ]; then
+            # Update version in package.json
+            sed -i "s/\"version\": \"${{ steps.get_version.outputs.current_version }}\"/\"version\": \"${{ steps.get_version.outputs.new_version }}\"/" package.json
+          else
+            # Update version in version.txt
+            echo "${{ steps.get_version.outputs.new_version }}" > version.txt
+          fi
+
+      - name: Update CHANGELOG.md
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          PR_TITLE="${{ steps.get_pr.outputs.pr_title }}"
+          PR_NUMBER="${{ steps.get_pr.outputs.pr_number }}"
+          PR_URL="${{ steps.get_pr.outputs.pr_url }}"
+          NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
+          
+          # Extract meaningful content from PR body (customize based on your PR template)
+          PR_BODY=$(echo '${{ steps.get_pr.outputs.pr_body }}' | sed 's/"/\\"/g')
+          PR_NOTES=$(echo "$PR_BODY" | sed -n '/## Changes/,/## /p' | grep -v '##')
+          
+          # Prepare changelog entry
+          CHANGELOG_ENTRY="## $NEW_VERSION ($DATE)\n\n"
+          CHANGELOG_ENTRY+="### What's Changed\n\n"
+          CHANGELOG_ENTRY+="- $PR_TITLE [#$PR_NUMBER]($PR_URL)\n"
+          
+          # Add PR body notes if they exist and aren't empty
+          if [ ! -z "$PR_NOTES" ] && [ "$PR_NOTES" != " " ]; then
+            CHANGELOG_ENTRY+="\n$PR_NOTES\n"
+          fi
+          
+          # Insert new entry at the top of the changelog (after the header)
+          if [ -f "CHANGELOG.md" ]; then
+            # Try to insert after the title
+            sed -i "0,/^# / s/^# /# Changelog\n\n$CHANGELOG_ENTRY\n/" CHANGELOG.md || \
+            # If that fails, insert at the beginning
+            sed -i "1i# Changelog\n\n$CHANGELOG_ENTRY\n" CHANGELOG.md
+          else
+            # Create a new changelog if it doesn't exist
+            echo -e "# Changelog\n\n$CHANGELOG_ENTRY" > CHANGELOG.md
+          fi
+          
+          # Show the updated changelog for debugging
+          cat CHANGELOG.md | head -20
+
+      - name: Commit changes
+        run: |
+          git add CHANGELOG.md ${{ steps.get_version.outputs.version_file }}
+          git commit -m "Bump version to ${{ steps.get_version.outputs.new_version }} for PR #${{ steps.get_pr.outputs.pr_number }}"
+          git push origin HEAD:${{ github.ref }}
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ steps.get_version.outputs.new_version }}" -m "${{ steps.get_pr.outputs.pr_title }} (PR #${{ steps.get_pr.outputs.pr_number }})"
+          git push origin "v${{ steps.get_version.outputs.new_version }}"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Extract changelog section for this version
+          NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
+          RELEASE_NOTES=$(awk "/## $NEW_VERSION/,/## /" CHANGELOG.md | grep -v "^## " | head -n -1)
+          
+          # Create the release
+          gh release create "v$NEW_VERSION" \
+            --title "${{ steps.get_pr.outputs.pr_title }}" \
+            --notes "$RELEASE_NOTES"
