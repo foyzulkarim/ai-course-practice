@@ -141,32 +141,27 @@ jobs:
           PR_NOTES=$(echo "$PR_BODY" | sed -n '/## Changes/,/## /p' | grep -v '##' || echo "")
 
           # Prepare changelog entry
-          CHANGELOG_ENTRY="## $NEW_VERSION ($DATE)\n\n"
+          CHANGELOG_ENTRY="## ${NEW_VERSION} (${DATE})\n\n"
           CHANGELOG_ENTRY+="### What's Changed\n\n"
-          CHANGELOG_ENTRY+="- $PR_TITLE [#$PR_NUMBER]($PR_URL)\n"
-
-          # Add PR body notes if they exist and aren't empty
+          CHANGELOG_ENTRY+="- ${PR_TITLE} [#${PR_NUMBER}](${PR_URL})\n"
           if [ ! -z "$PR_NOTES" ] && [ "$PR_NOTES" != " " ]; then
-            CHANGELOG_ENTRY+="\n$PR_NOTES\n"
+            CHANGELOG_ENTRY+="\n${PR_NOTES}\n"
           fi
 
-          # Insert new entry at the top of the changelog (after the header)
           if [ -f "CHANGELOG.md" ]; then
-            # Check if file starts with a heading
             if grep -q "^# " CHANGELOG.md; then
-              # Insert after the first heading
-              sed -i "0,/^# /s/^# .*/# Changelog\n\n$CHANGELOG_ENTRY/" CHANGELOG.md
+              head -n1 CHANGELOG.md > temp_changelog.md
+              echo -e "\n${CHANGELOG_ENTRY}" >> temp_changelog.md
+              tail -n +2 CHANGELOG.md >> temp_changelog.md
+              mv temp_changelog.md CHANGELOG.md
             else
-              # Add to the top of the file
-              sed -i "1i# Changelog\n\n$CHANGELOG_ENTRY\n" CHANGELOG.md
+              echo -e "# Changelog\n\n${CHANGELOG_ENTRY}" > CHANGELOG.md
             fi
           else
-            # Create a new changelog if it doesn't exist
-            echo -e "# Changelog\n\n$CHANGELOG_ENTRY" > CHANGELOG.md
+            echo -e "# Changelog\n\n${CHANGELOG_ENTRY}" > CHANGELOG.md
           fi
 
-          # Show the updated changelog for debugging
-          cat CHANGELOG.md | head -20
+          head -n20 CHANGELOG.md
 
       - name: Commit changes
         run: |
