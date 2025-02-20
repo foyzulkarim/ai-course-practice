@@ -4,12 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'PR number to base the release on (leave empty for latest merged PR)'
+        description: "PR number to base the release on (leave empty for latest merged PR)"
         required: false
+        type: string
+        default: ""
       bump_type:
-        description: 'Version bump type'
+        description: "Version bump type"
         required: true
-        default: 'minor'
+        default: "minor"
         type: choice
         options:
           - patch
@@ -39,23 +41,50 @@ jobs:
         id: get_pr
         run: |
           if [ -z "${{ github.event.inputs.pr_number }}" ]; then
+            echo "Using latest merged PR..."
             # Get latest merged PR
-            LATEST_PR=$(gh pr list --limit 1 --state merged --json number,title,body,url --jq '.[0]')
-            PR_NUMBER=$(echo "$LATEST_PR" | jq -r '.number')
-            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-            echo "pr_title=$(echo "$LATEST_PR" | jq -r '.title')" >> $GITHUB_OUTPUT
-            echo "pr_body=$(echo "$LATEST_PR" | jq -r '.body')" >> $GITHUB_OUTPUT
-            echo "pr_url=$(echo "$LATEST_PR" | jq -r '.url')" >> $GITHUB_OUTPUT
+            LATEST_PR=$(gh pr list --limit 1 --state merged --json number,title,body,url)
+            if [ -z "$LATEST_PR" ] || [ "$LATEST_PR" = "[]" ]; then
+              echo "Error: No merged PRs found"
+              exit 1
+            fi
+            
+            # Extract first PR from array
+            PR_INFO=$(echo "$LATEST_PR" | jq '.[0]')
+            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number')
+            PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+            PR_BODY=$(echo "$PR_INFO" | jq -r '.body')
+            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
           else
+            echo "Using provided PR number: ${{ github.event.inputs.pr_number }}"
             # Use provided PR number
-            PR_DETAILS=$(gh pr view ${{ github.event.inputs.pr_number }} --json title,body,url)
-            echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
-            echo "pr_title=$(echo "$PR_DETAILS" | jq -r '.title')" >> $GITHUB_OUTPUT
-            echo "pr_body=$(echo "$PR_DETAILS" | jq -r '.body')" >> $GITHUB_OUTPUT
-            echo "pr_url=$(echo "$PR_DETAILS" | jq -r '.url')" >> $GITHUB_OUTPUT
+            PR_INFO=$(gh pr view ${{ github.event.inputs.pr_number }} --json number,title,body,url)
+            PR_NUMBER="${{ github.event.inputs.pr_number }}"
+            PR_TITLE=$(echo "$PR_INFO" | jq -r '.title')
+            PR_BODY=$(echo "$PR_INFO" | jq -r '.body')
+            PR_URL=$(echo "$PR_INFO" | jq -r '.url')
           fi
+
+          # Output variables for next steps
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+
+          # Escape newlines in PR body for GitHub Actions
+          PR_BODY_ESCAPED="${PR_BODY//$'\n'/'%0A'}"
+          PR_BODY_ESCAPED="${PR_BODY_ESCAPED//$'\r'/'%0D'}"
+          echo "pr_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$PR_BODY_ESCAPED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Debug PR Info
+        run: |
+          echo "PR Number: ${{ steps.get_pr.outputs.pr_number }}"
+          echo "PR Title: ${{ steps.get_pr.outputs.pr_title }}"
+          echo "PR URL: ${{ steps.get_pr.outputs.pr_url }}"
 
       - name: Determine current version
         id: get_version
@@ -72,12 +101,12 @@ jobs:
           fi
 
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          
+
           # Parse semver components
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
           PATCH=$(echo $CURRENT_VERSION | cut -d. -f3)
-          
+
           # Calculate new version based on bump type
           if [ "${{ github.event.inputs.bump_type }}" == "major" ]; then
             NEW_VERSION="$((MAJOR + 1)).0.0"
@@ -86,7 +115,7 @@ jobs:
           else # patch
             NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
           fi
-          
+
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version file
@@ -106,32 +135,36 @@ jobs:
           PR_NUMBER="${{ steps.get_pr.outputs.pr_number }}"
           PR_URL="${{ steps.get_pr.outputs.pr_url }}"
           NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
-          
-          # Extract meaningful content from PR body (customize based on your PR template)
-          PR_BODY=$(echo '${{ steps.get_pr.outputs.pr_body }}' | sed 's/"/\\"/g')
-          PR_NOTES=$(echo "$PR_BODY" | sed -n '/## Changes/,/## /p' | grep -v '##')
-          
+
+          # Extract meaningful content from PR body
+          PR_BODY="${{ steps.get_pr.outputs.pr_body }}"
+          PR_NOTES=$(echo "$PR_BODY" | sed -n '/## Changes/,/## /p' | grep -v '##' || echo "")
+
           # Prepare changelog entry
           CHANGELOG_ENTRY="## $NEW_VERSION ($DATE)\n\n"
           CHANGELOG_ENTRY+="### What's Changed\n\n"
           CHANGELOG_ENTRY+="- $PR_TITLE [#$PR_NUMBER]($PR_URL)\n"
-          
+
           # Add PR body notes if they exist and aren't empty
           if [ ! -z "$PR_NOTES" ] && [ "$PR_NOTES" != " " ]; then
             CHANGELOG_ENTRY+="\n$PR_NOTES\n"
           fi
-          
+
           # Insert new entry at the top of the changelog (after the header)
           if [ -f "CHANGELOG.md" ]; then
-            # Try to insert after the title
-            sed -i "0,/^# / s/^# /# Changelog\n\n$CHANGELOG_ENTRY\n/" CHANGELOG.md || \
-            # If that fails, insert at the beginning
-            sed -i "1i# Changelog\n\n$CHANGELOG_ENTRY\n" CHANGELOG.md
+            # Check if file starts with a heading
+            if grep -q "^# " CHANGELOG.md; then
+              # Insert after the first heading
+              sed -i "0,/^# /s/^# .*/# Changelog\n\n$CHANGELOG_ENTRY/" CHANGELOG.md
+            else
+              # Add to the top of the file
+              sed -i "1i# Changelog\n\n$CHANGELOG_ENTRY\n" CHANGELOG.md
+            fi
           else
             # Create a new changelog if it doesn't exist
             echo -e "# Changelog\n\n$CHANGELOG_ENTRY" > CHANGELOG.md
           fi
-          
+
           # Show the updated changelog for debugging
           cat CHANGELOG.md | head -20
 
@@ -152,8 +185,8 @@ jobs:
         run: |
           # Extract changelog section for this version
           NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
-          RELEASE_NOTES=$(awk "/## $NEW_VERSION/,/## /" CHANGELOG.md | grep -v "^## " | head -n -1)
-          
+          RELEASE_NOTES=$(awk "/## $NEW_VERSION/,/## /" CHANGELOG.md | grep -v "^## " | head -n -1 || echo "Release for PR #${{ steps.get_pr.outputs.pr_number }}")
+
           # Create the release
           gh release create "v$NEW_VERSION" \
             --title "${{ steps.get_pr.outputs.pr_title }}" \
