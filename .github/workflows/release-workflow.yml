@@ -136,17 +136,10 @@ jobs:
           PR_URL="${{ steps.get_pr.outputs.pr_url }}"
           NEW_VERSION="${{ steps.get_version.outputs.new_version }}"
 
-          # Extract meaningful content from PR body
-          PR_BODY="${{ steps.get_pr.outputs.pr_body }}"
-          PR_NOTES=$(echo "$PR_BODY" | sed -n '/## Changes/,/## /p' | grep -v '##' || echo "")
-
           # Prepare changelog entry
           CHANGELOG_ENTRY="## ${NEW_VERSION} (${DATE})\n\n"
           CHANGELOG_ENTRY+="### What's Changed\n\n"
           CHANGELOG_ENTRY+="- ${PR_TITLE} [#${PR_NUMBER}](${PR_URL})\n"
-          if [ ! -z "$PR_NOTES" ] && [ "$PR_NOTES" != " " ]; then
-            CHANGELOG_ENTRY+="\n${PR_NOTES}\n"
-          fi
 
           if [ -f "CHANGELOG.md" ]; then
             if grep -q "^# " CHANGELOG.md; then
