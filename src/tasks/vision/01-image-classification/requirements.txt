@@ -1,0 +1,6 @@
+transformers
+torch
+Pillow
+timm
+nltk
+numpy
