@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 (2025-02-22)
+
+### What's Changed
+
+- Add transformers object detection task example [#13](https://github.com/foyzulkarim/transformers-tasks/pull/13)
+
+
 ## 1.2.0 (2025-02-21)
 
 ### What's Changed
