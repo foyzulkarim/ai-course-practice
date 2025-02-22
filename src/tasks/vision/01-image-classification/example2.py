@@ -24,7 +24,7 @@ def main():
     # Initialize the image classification pipeline
     clf = pipeline("image-classification", model=ModelName.RESNET50.value)
     
-    results = clf("bird.jpg")
+    results = clf("../images/bird.jpg")
     print("Classification results:", results)
     
     identified_label = infer_generic_category(results[0]["label"])

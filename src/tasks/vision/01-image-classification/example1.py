@@ -11,7 +11,7 @@ def main():
     # Initialize the image classification pipeline using the enum value
     clf = pipeline("image-classification", model=ModelName.VIT_TINY_PATCH16_224.value)
     
-    results = clf("bird.jpg")
+    results = clf("../images/bird.jpg")
     
     # Output the classification results
     print(results)
