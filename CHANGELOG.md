@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0 (2025-02-23)
+
+### What's Changed
+
+- Add zero-shot object detection example using Transformers [#14](https://github.com/foyzulkarim/transformers-tasks/pull/14)
+
+
 ## 1.3.0 (2025-02-22)
 
 ### What's Changed
