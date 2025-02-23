@@ -14,8 +14,8 @@ def main():
     pipe = DiffusionPipeline.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5")
     
     device = "cpu"
-    # Move the pipeline to GPU if available
-    if torch.cuda.is_available():
+    # Ensure CUDA is available and PyTorch is compiled with CUDA support before moving to GPU
+    if torch.version.cuda is not None and torch.cuda.is_available():
         device = "cuda"
         pipe = pipe.to(device)
     elif torch.backends.mps.is_available():
