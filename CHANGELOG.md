@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0 (2025-02-23)
+
+### What's Changed
+
+- Add text-to-image generation examples and requirements [#17](https://github.com/foyzulkarim/transformers-tasks/pull/17)
+
+
 ## 1.6.0 (2025-02-23)
 
 ### What's Changed
