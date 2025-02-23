@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0 (2025-02-23)
+
+### What's Changed
+
+- Add Image-to-Text Functionality [#16](https://github.com/foyzulkarim/transformers-tasks/pull/16)
+
+
 ## 1.5.0 (2025-02-23)
 
 ### What's Changed
