@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0 (2025-02-24)
+
+### What's Changed
+
+- Add video classification examples and update requirements [#18](https://github.com/foyzulkarim/transformers-tasks/pull/18)
+
+
 ## 1.7.0 (2025-02-23)
 
 ### What's Changed
