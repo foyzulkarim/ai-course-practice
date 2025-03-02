@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.0 (2025-03-02)
+
+### What's Changed
+
+- Text-to-Video Code Refactoring and Improvements [#20](https://github.com/foyzulkarim/transformers-tasks/pull/20)
+
+
 ## 1.9.0 (2025-03-02)
 
 ### What's Changed
