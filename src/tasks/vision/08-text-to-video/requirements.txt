@@ -1,0 +1,7 @@
+torch
+diffusers
+safetensors
+huggingface-hub
+transformers 
+accelerate 
+imageio-ffmpeg
