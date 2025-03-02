@@ -8,30 +8,41 @@ from diffusers.utils import export_to_gif
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
-# Import utility functions from shared vision utils
+# Import utility functions
+import sys
+import os
+
+# Add parent directory to path to simplify imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 try:
-    # Try relative import first (when run from parent directory)
+    # Standard import when running from proper package structure
     from ..utils import get_device, export_video_robust
 except ImportError:
-    try:
-        # Try absolute import (when run from project root)
-        from src.tasks.vision.utils import get_device, export_video_robust
-    except ImportError:
-        # Fallback for direct execution
-        import sys
-        import os
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        from utils import get_device, export_video_robust
+    # Fallback for direct script execution
+    from utils import get_device, export_video_robust
 
 # Define a dataclass to hold model configuration
 @dataclass
 class ModelConfig:
+    """Configuration class for text-to-video generation models.
+    
+    Attributes:
+        base: HuggingFace model repository path
+        steps: Number of inference steps to use
+        file_prefix: Prefix for output filenames
+    """
     base: str
     steps: int
     file_prefix: str
 
 # Enum for different base models
 class BaseModelName(Enum):
+    """Available pretrained models for text-to-video generation.
+    
+    Each entry contains the model repository, preferred number of steps,
+    and naming convention for output files.
+    """
     EPIC_REALISM = ModelConfig(base="emilianJR/epiCRealism", steps=8, file_prefix="e1_epic")
     TOONYOU = ModelConfig(base="frankjoshua/toonyou_beta6", steps=8, file_prefix="e1_toonyou")
     REALISTIC_VISION = ModelConfig(base="SG161222/Realistic_Vision_V5.1_noVAE", steps=8, file_prefix="e1_realistic")
@@ -47,10 +58,15 @@ def main():
     # Select model config from enum (easy to change)
     model_config = BaseModelName.TOONYOU.value
     
+    # Constants for repositories and file formats
+    REPOSITORIES = {
+        "animatediff": "ByteDance/AnimateDiff-Lightning"
+    }
+    
     # Set up motion adapter and repository
-    repo = "ByteDance/AnimateDiff-Lightning"
+    repo = REPOSITORIES["animatediff"]
     ckpt = f"animatediff_lightning_{model_config.steps}step_diffusers.safetensors"
-    fileName = f"{model_config.file_prefix}_{model_config.steps}step.gif"
+    file_name = f"{model_config.file_prefix}_{model_config.steps}step.gif"
     
     # Create the adapter and load state dict
     adapter = MotionAdapter().to(device, dtype)
@@ -69,10 +85,19 @@ def main():
         beta_schedule="linear"
     )
     
-    # Define the prompt
-    prompt = """
-    Vast golden desert under a bright midday sun, two tiny figures riding camels in the far distance, shimmering heat waves, soft sand dunes, pale blue sky, serene and epic atmosphere.
-    """
+    # Example prompts for text-to-video generation
+    PROMPTS = {
+        "desert": """Vast golden desert under a bright midday sun, two tiny figures riding 
+                  camels in the far distance, shimmering heat waves, soft sand dunes, 
+                  pale blue sky, serene and epic atmosphere.""",
+        "forest": """Lush green forest with tall trees, sunlight filtering through the canopy,
+                   a small stream with clear water flowing over rocks, birds flying between branches.""",
+        "ocean": """Deep blue ocean waves with white foam, a small boat rocking on the surface,
+                  seagulls flying overhead, cloudy sky with rays of sunlight breaking through."""
+    }
+    
+    # Select a prompt to use
+    prompt = PROMPTS["desert"]
     
     # Generate the video frames
     output = pipe(
@@ -82,8 +107,8 @@ def main():
     )
     
     # Export the result
-    export_to_gif(output.frames[0], fileName)
-    print(f"Video exported to {fileName}")
+    export_to_gif(output.frames[0], file_name)
+    print(f"Video exported to {file_name}")
     
     # Export as MP4
     # Uncomment to export as MP4 as well
