@@ -38,6 +38,7 @@ Below are three separate tables that organize the tasks by type. All tables have
 | [ ]   | Video Classification          | `MCG-NJU/videomae-base-finetuned-kinetics`              | N/A                                                     |
 | [ ]   | Mask Generation               | `facebook/sam-vit-huge`                                 | N/A                                                     |
 | [x]   | Image-to-Image               | `caidas/swin2SR-classical-sr-x2-64`                     | N/A                                                     |
+| [x]   | Text-to-Video                | N/A                                                     | N/A                                                     |
 
 ---
 
