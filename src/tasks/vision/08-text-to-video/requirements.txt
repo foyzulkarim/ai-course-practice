@@ -4,4 +4,6 @@ safetensors
 huggingface-hub
 transformers 
 accelerate 
+imageio
 imageio-ffmpeg
+opencv-python  # Fallback option
