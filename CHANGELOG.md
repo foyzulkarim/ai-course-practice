@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.0 (2025-03-02)
+
+### What's Changed
+
+- Add text-to-video generation example and video export functionality [#19](https://github.com/foyzulkarim/transformers-tasks/pull/19)
+
+
 ## 1.8.0 (2025-02-24)
 
 ### What's Changed
