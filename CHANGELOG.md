@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.0 (2025-03-08)
+
+### What's Changed
+
+- Update model configurations and add example2.py for text-to-video generation tasks [#21](https://github.com/foyzulkarim/transformers-tasks/pull/21)
+
+
 ## 1.10.0 (2025-03-02)
 
 ### What's Changed
