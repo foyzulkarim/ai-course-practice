@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.0 (2025-03-08)
+
+### What's Changed
+
+- Add TTS example and audio processing requirements [#23](https://github.com/foyzulkarim/transformers-tasks/pull/23)
+
+
 ## 1.12.0 (2025-03-08)
 
 ### What's Changed
