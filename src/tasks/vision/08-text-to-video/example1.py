@@ -43,25 +43,28 @@ class BaseModelName(Enum):
     Each entry contains the model repository, preferred number of steps,
     and naming convention for output files.
     """
-    EPIC_REALISM = ModelConfig(base="emilianJR/epiCRealism", steps=8, file_prefix="e1_epic")
-    TOONYOU = ModelConfig(base="frankjoshua/toonyou_beta6", steps=8, file_prefix="e1_toonyou")
-    REALISTIC_VISION = ModelConfig(base="SG161222/Realistic_Vision_V5.1_noVAE", steps=8, file_prefix="e1_realistic")
-    RESIDENT_CARTOON = ModelConfig(base="Yntec/ResidentCNZCartoon3D", steps=1, file_prefix="e1_animatediff")
+    EPIC_REALISM = ModelConfig(base="emilianJR/epiCRealism", steps=4, file_prefix="e1_epic")
+    TOONYOU = ModelConfig(base="frankjoshua/toonyou_beta6", steps=4, file_prefix="e1_toonyou")
+    REALISTIC_VISION = ModelConfig(base="SG161222/Realistic_Vision_V5.1_noVAE", steps=4, file_prefix="e1_realistic")
+    RESIDENT_CARTOON = ModelConfig(base="Yntec/ResidentCNZCartoon3D", steps=1, file_prefix="e1_animatediff") # WARNING: this uses CPU, hence too slow
 
-def main():
-    # Use our utility function to get the best available device
-    device = get_device()
-    print(f"Using device: {device}")
-    
-    dtype = torch.float16
-    
+def main():    
     # Select model config from enum (easy to change)
-    model_config = BaseModelName.TOONYOU.value
+    model_config = BaseModelName.EPIC_REALISM.value
     
     # Constants for repositories and file formats
     REPOSITORIES = {
         "animatediff": "ByteDance/AnimateDiff-Lightning"
     }
+
+    # Use our utility function to get the best available device
+    # if model_config used RESIDENT_CARTOON, then device is "cpu" else get the best available device using the function
+    device = "cpu" if model_config == BaseModelName.RESIDENT_CARTOON.value else get_device()
+    # device = get_device()
+    # device = "cpu"
+    print(f"Using device: {device}")
+    
+    dtype = torch.float16
     
     # Set up motion adapter and repository
     repo = REPOSITORIES["animatediff"]
@@ -84,11 +87,13 @@ def main():
         timestep_spacing="trailing", 
         beta_schedule="linear"
     )
+
+    pipe.enable_attention_slicing()
     
     # Example prompts for text-to-video generation
     PROMPTS = {
         "desert": """Vast golden desert under a bright midday sun, two tiny figures riding 
-                  camels in the far distance, shimmering heat waves, soft sand dunes, 
+                  camels in the far distance moving very slowly, shimmering heat waves, soft sand dunes, 
                   pale blue sky, serene and epic atmosphere.""",
         "forest": """Lush green forest with tall trees, sunlight filtering through the canopy,
                    a small stream with clear water flowing over rocks, birds flying between branches.""",
@@ -113,6 +118,7 @@ def main():
     # Export as MP4
     # Uncomment to export as MP4 as well
     # export_video_robust(output.frames[0], f"{model_config.file_prefix}_{model_config.steps}step.mp4")
+    # print(f"Video exported to {model_config.file_prefix}_{model_config.steps}step.mp4")
 
 if __name__ == "__main__":
     main()
