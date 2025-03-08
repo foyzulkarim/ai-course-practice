@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.12.0 (2025-03-08)
+
+### What's Changed
+
+- Add ASR example and requirements for audio processing [#22](https://github.com/foyzulkarim/transformers-tasks/pull/22)
+
+
 ## 1.11.0 (2025-03-08)
 
 ### What's Changed
