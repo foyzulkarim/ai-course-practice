@@ -1,0 +1,4 @@
+kokoro
+soundfile
+IPython
+torch
