@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.14.0 (2025-03-10)
+
+### What's Changed
+
+- Add Docker support for persistent Ollama model execution [#24](https://github.com/foyzulkarim/transformers-tasks/pull/24)
+
+
 ## 1.13.0 (2025-03-08)
 
 ### What's Changed
