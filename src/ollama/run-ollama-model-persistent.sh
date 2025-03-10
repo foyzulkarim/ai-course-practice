@@ -6,13 +6,13 @@ usage() {
   echo "Options:"
   echo "  -m, --model MODEL    : AI model to run (default: llama3:8b)"
   echo "  -p, --port PORT      : Host port to map to container port 11434 (default: 11436)"
-  echo "  -n, --name NAME      : Name for the container (default: derived from MODEL name)"
+  echo "  -n, --name NAME      : Name for the container (default: derived from MODEL name and PORT)"
   echo "  -h, --help           : Show this help message"
   echo ""
   echo "Examples:"
-  echo "  $0                           # Runs llama3:8b on port 11436 in container named ollama-llama3-8b"
-  echo "  $0 -m mistral:7b             # Runs mistral:7b on port 11436 in container named ollama-mistral-7b"
-  echo "  $0 -m llama3:70b -p 11437    # Runs llama3:70b on port 11437 in container named ollama-llama3-70b"
+  echo "  $0                           # Runs llama3:8b on port 11436 in container named ollama-llama3-8b-11436"
+  echo "  $0 -m mistral:7b             # Runs mistral:7b on port 11436 in container named ollama-mistral-7b-11436"
+  echo "  $0 -m llama3:70b -p 11437    # Runs llama3:70b on port 11437 in container named ollama-llama3-70b-11437"
   echo "  $0 -m llama3:8b -n my-llm    # Runs llama3:8b on port 11436 in container named my-llm"
   echo "  $0 -p 11438 -n my-llm -m llama3:8b  # All parameters specified"
 }
@@ -37,6 +37,11 @@ while [[ $# -gt 0 ]]; do
       CONTAINER_NAME="$2"
       shift 2
       ;;
+    -v|--volume)
+      echo "Warning: Volume is now automatically derived from container name for isolation"
+      echo "The -v/--volume option is deprecated and will be ignored"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -51,14 +56,18 @@ done
 
 # Generate container name from model if not provided
 if [ -z "$CONTAINER_NAME" ]; then
-  # Strip special characters from model name and prefix with "ollama-"
-  CONTAINER_NAME="ollama-$(echo $MODEL | sed 's/[:\/]/-/g' | sed 's/[^a-zA-Z0-9-]//g')"
+  # Strip special characters from model name and prefix with "ollama-", append port number
+  CONTAINER_NAME="ollama-$(echo $MODEL | sed 's/[:\/]/-/g' | sed 's/[^a-zA-Z0-9-]//g')-$HOST_PORT"
 fi
+
+# Generate a unique volume name based on container name
+VOLUME_NAME="${CONTAINER_NAME}-volume"
 
 echo "Setting up persistent Ollama container:"
 echo "  Model: $MODEL"
 echo "  Port: $HOST_PORT"
 echo "  Container name: $CONTAINER_NAME"
+echo "  Volume name: $VOLUME_NAME (uniquely tied to this container)"
 
 # Check if container already exists
 if docker ps -a --format '{{.Names}}' | grep -q "^$CONTAINER_NAME$"; then
@@ -75,7 +84,7 @@ else
   docker run -d \
     --name $CONTAINER_NAME \
     -p $HOST_PORT:11434 \
-    -v ollama-data:/root/.ollama \
+    -v $VOLUME_NAME:/root/.ollama \
     --restart unless-stopped \
     ollama/ollama
   
